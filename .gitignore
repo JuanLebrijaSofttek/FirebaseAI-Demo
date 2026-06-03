@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Xcode
+**/*.xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserstate
+*.xccheckout
+*.moved-aside
+build/
+
+# Firebase — never commit project credentials
+GoogleService-Info.plist
+
+# Swift Package Manager
+.build/
+*.resolved
