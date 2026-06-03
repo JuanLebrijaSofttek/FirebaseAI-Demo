@@ -70,7 +70,11 @@ enum StdioLauncher {
         if name.contains("/") {
             return FileManager.default.isExecutableFile(atPath: name) ? name : nil
         }
-        var dirs = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
+        var dirs: [String] = []
+        // Prefer the compatible Node bin dir so `npx`/`node` come from it (e.g. nvm 24,
+        // not Homebrew 25 which breaks firebase-tools).
+        if let nodeDir = preferredNodeBinDir() { dirs.append(nodeDir) }
+        dirs += ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
         if let path = ProcessInfo.processInfo.environment["PATH"] {
             dirs += path.split(separator: ":").map(String.init)
         }
@@ -84,20 +88,53 @@ enum StdioLauncher {
     }
 
     /// Builds the child environment with a PATH that includes common tool
-    /// directories and the directory containing `node`, so `npx`'s
-    /// `#!/usr/bin/env node` shebang can resolve (the app/test process inherits
-    /// only the minimal launchd PATH otherwise).
+    /// directories and a Node bin dir, so `npx`'s `#!/usr/bin/env node` shebang can
+    /// resolve (the app/test process inherits only the minimal launchd PATH otherwise).
+    ///
+    /// Prefers an nvm-installed LTS Node (major 24/22/20) over Homebrew's, because a
+    /// too-new Node (e.g. 25) breaks some CLIs like `firebase-tools`.
     private static func augmentedEnvironment() -> [String: String] {
         var env = ProcessInfo.processInfo.environment
-        var dirs = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
-        if let node = resolveExecutable("node") {
-            dirs.insert((node as NSString).deletingLastPathComponent, at: 0)
-        }
+        var dirs: [String] = []
+        if let nodeDir = preferredNodeBinDir() { dirs.append(nodeDir) }
+        dirs += ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
         let existing = env["PATH"]?.split(separator: ":").map(String.init) ?? []
         var seen = Set<String>()
         let merged = (dirs + existing).filter { seen.insert($0).inserted }
         env["PATH"] = merged.joined(separator: ":")
         return env
+    }
+
+    /// The bin directory of the most suitable Node: the highest nvm-installed version
+    /// with a firebase-tools-compatible major (24/22/20), else wherever `node` resolves.
+    private static func preferredNodeBinDir() -> String? {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let nvmDir = "\(home)/.nvm/versions/node"
+        let compatibleMajors: Set<Int> = [24, 22, 20]
+
+        func sortKey(_ parts: [Int]) -> Int {
+            let major = parts.count > 0 ? parts[0] : 0
+            let minor = parts.count > 1 ? parts[1] : 0
+            let patch = parts.count > 2 ? parts[2] : 0
+            return major * 1_000_000 + minor * 1_000 + patch
+        }
+
+        if let entries = try? FileManager.default.contentsOfDirectory(atPath: nvmDir) {
+            let best = entries.compactMap { name -> (key: Int, path: String)? in
+                let v = name.hasPrefix("v") ? String(name.dropFirst()) : name
+                let parts = v.split(separator: ".").compactMap { Int($0) }
+                guard let major = parts.first, compatibleMajors.contains(major) else { return nil }
+                let bin = "\(nvmDir)/\(name)/bin"
+                return FileManager.default.isExecutableFile(atPath: "\(bin)/node") ? (sortKey(parts), bin) : nil
+            }.max { $0.key < $1.key }
+            if let best { return best.path }
+        }
+
+        // Fallback: scan common dirs directly (no resolveExecutable → avoids recursion).
+        for dir in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"] {
+            if FileManager.default.isExecutableFile(atPath: "\(dir)/node") { return dir }
+        }
+        return nil
     }
 
     /// Launches `command arguments…` and returns the running process plus a
@@ -130,6 +167,11 @@ enum StdioLauncher {
         process.terminationHandler = { p in
             let reason = p.terminationReason == .uncaughtSignal ? "signal" : "exit"
             print("🧪 StdioLauncher: child pid \(p.processIdentifier) ENDED (\(reason) status \(p.terminationStatus))")
+            // On an abnormal exit (not our SIGTERM=15), surface the captured stderr.
+            if p.terminationStatus != 0 && p.terminationStatus != 15 {
+                let err = stderr.text
+                if !err.isEmpty { print("🧪 StdioLauncher: pid \(p.processIdentifier) stderr:\n\(err)") }
+            }
         }
 
         print("🧪 StdioLauncher: launching \(executable) \(arguments.joined(separator: " "))")

@@ -45,7 +45,15 @@ extension MCPServerConfig {
         transport: .stdio(command: "npx", arguments: ["-y", "xcodebuildmcp@latest", "mcp"])
     )
 
-    static let builtIns: [MCPServerConfig] = [.xcodeTools, .xcodeBuildMCP]
+    /// Firebase MCP server (firebase-tools). Uses the Firebase CLI credentials in the
+    /// environment, so run `firebase login` first for its tools to access projects.
+    static let firebase = MCPServerConfig(
+        id: UUID(uuidString: "00000000-0000-0000-0000-0000000000A3")!,
+        name: "Firebase",
+        transport: .stdio(command: "npx", arguments: ["-y", "firebase-tools@latest", "mcp"])
+    )
+
+    static let builtIns: [MCPServerConfig] = [.xcodeTools, .xcodeBuildMCP, .firebase]
 }
 
 enum MCPBridgeError: LocalizedError {
@@ -94,12 +102,21 @@ enum MCPServerStore {
         return configs
     }
 
-    /// Returns stored servers, seeding the built-ins on first run.
+    /// Returns stored servers, seeding the built-ins on first run and merging in any
+    /// newly-added built-ins (by id) on subsequent runs so they appear after updates.
     static func loadOrSeed() -> [MCPServerConfig] {
-        let stored = load()
-        guard stored.isEmpty else { return stored }
-        save(MCPServerConfig.builtIns)
-        return MCPServerConfig.builtIns
+        var stored = load()
+        if stored.isEmpty {
+            save(MCPServerConfig.builtIns)
+            return MCPServerConfig.builtIns
+        }
+        let existingIDs = Set(stored.map(\.id))
+        let missing = MCPServerConfig.builtIns.filter { !existingIDs.contains($0.id) }
+        if !missing.isEmpty {
+            stored.append(contentsOf: missing)
+            save(stored)
+        }
+        return stored
     }
 
     static func save(_ configs: [MCPServerConfig]) {

@@ -50,7 +50,10 @@ final class MCPManager {
     }
 
     /// Connect (or reconnect) a single server without disturbing the others.
-    func connect(_ config: MCPServerConfig, timeout: Duration = .seconds(30)) async {
+    /// The timeout is generous because npx-launched servers download their package
+    /// on first run (cached afterward); already-fast servers return as soon as the
+    /// handshake completes regardless of this ceiling.
+    func connect(_ config: MCPServerConfig, timeout: Duration = .seconds(150)) async {
         await disconnect(config.id)   // clean slate if already connected
         configsByID[config.id] = config
         statuses[config.id] = MCPServerStatus(id: config.id, name: config.name, state: .connecting, toolCount: 0)
