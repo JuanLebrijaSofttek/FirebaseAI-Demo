@@ -21,6 +21,18 @@ import System
 @preconcurrency import SystemPackage
 #endif
 
+/// One-shot claim guard for racing tasks (e.g. a timeout vs a worker).
+final class OnceFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func claim() -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        if done { return false }
+        done = true
+        return true
+    }
+}
+
 /// Thread-safe accumulator for a child process's stderr (or any stream).
 final class OutputCollector: @unchecked Sendable {
     private let lock = NSLock()
@@ -113,6 +125,11 @@ enum StdioLauncher {
         errPipe.fileHandleForReading.readabilityHandler = { handle in
             let chunk = handle.availableData
             if !chunk.isEmpty { stderr.append(chunk) }
+        }
+
+        process.terminationHandler = { p in
+            let reason = p.terminationReason == .uncaughtSignal ? "signal" : "exit"
+            print("🧪 StdioLauncher: child pid \(p.processIdentifier) ENDED (\(reason) status \(p.terminationStatus))")
         }
 
         print("🧪 StdioLauncher: launching \(executable) \(arguments.joined(separator: " "))")

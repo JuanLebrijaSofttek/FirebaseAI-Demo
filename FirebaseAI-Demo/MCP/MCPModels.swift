@@ -53,6 +53,7 @@ enum MCPBridgeError: LocalizedError {
     case unknownTool(String)
     case authRequired(URL)
     case invalidResponse
+    case timedOut(String)
 
     var errorDescription: String? {
         switch self {
@@ -60,6 +61,7 @@ enum MCPBridgeError: LocalizedError {
         case .unknownTool(let n):  return "No connected MCP server provides the tool \"\(n)\"."
         case .authRequired(let u): return "Authentication required for \(u.absoluteString)."
         case .invalidResponse:     return "The MCP server returned an unexpected response."
+        case .timedOut(let d):     return "Timed out. \(d)"
         }
     }
 }

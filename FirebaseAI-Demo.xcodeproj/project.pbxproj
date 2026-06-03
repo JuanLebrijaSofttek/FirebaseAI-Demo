@@ -12,6 +12,7 @@
 		D7B464A72FCF48D600234F2C /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = D7B464A62FCF48D600234F2C /* FirebaseFirestore */; };
 		D7B464AD2FCF4B5400234F2C /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = D7B464AC2FCF4B5400234F2C /* FirebaseCore */; };
 		D7B464C82FCF85C300234F2C /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = D7B464C72FCF85C300234F2C /* MCP */; };
+		D7B4650C2FD0937000234F2C /* LLMStream in Frameworks */ = {isa = PBXBuildFile; productRef = D7B4650B2FD0937000234F2C /* LLMStream */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +65,7 @@
 				D7B464A52FCF48D600234F2C /* FirebaseAuth in Frameworks */,
 				D7B464AD2FCF4B5400234F2C /* FirebaseCore in Frameworks */,
 				D7B464A72FCF48D600234F2C /* FirebaseFirestore in Frameworks */,
+				D7B4650C2FD0937000234F2C /* LLMStream in Frameworks */,
 				D7B464C82FCF85C300234F2C /* MCP in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -129,6 +131,7 @@
 				D7B464A62FCF48D600234F2C /* FirebaseFirestore */,
 				D7B464AC2FCF4B5400234F2C /* FirebaseCore */,
 				D7B464C72FCF85C300234F2C /* MCP */,
+				D7B4650B2FD0937000234F2C /* LLMStream */,
 			);
 			productName = "FirebaseAI-Demo";
 			productReference = D7B464912FCF46F400234F2C /* FirebaseAI-Demo.app */;
@@ -188,6 +191,7 @@
 			packageReferences = (
 				D7B464A12FCF48D600234F2C /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				D7B464C62FCF85C300234F2C /* XCRemoteSwiftPackageReference "swift-sdk" */,
+				D7B4650A2FD0937000234F2C /* XCRemoteSwiftPackageReference "LLMStream" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D7B464922FCF46F400234F2C /* Products */;
@@ -516,6 +520,14 @@
 				minimumVersion = 0.12.1;
 			};
 		};
+		D7B4650A2FD0937000234F2C /* XCRemoteSwiftPackageReference "LLMStream" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/synth-inc/LLMStream";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -543,6 +555,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D7B464C62FCF85C300234F2C /* XCRemoteSwiftPackageReference "swift-sdk" */;
 			productName = MCP;
+		};
+		D7B4650B2FD0937000234F2C /* LLMStream */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D7B4650A2FD0937000234F2C /* XCRemoteSwiftPackageReference "LLMStream" */;
+			productName = LLMStream;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

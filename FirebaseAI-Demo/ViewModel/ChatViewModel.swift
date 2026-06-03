@@ -144,6 +144,20 @@ final class ChatViewModel {
         rebuildModel()
     }
 
+    /// Connect (or reconnect) a single server, then refresh the model's tool set.
+    func connectServer(_ config: MCPServerConfig) async {
+        await mcpManager.connect(config)
+        mcpStatuses = Array(mcpManager.statuses.values)
+        rebuildModel()
+    }
+
+    /// Disconnect a single server (removing its tools from the model).
+    func disconnectServer(_ id: UUID) async {
+        await mcpManager.disconnect(id)
+        mcpStatuses = Array(mcpManager.statuses.values)
+        rebuildModel()
+    }
+
     /// Disconnect all MCP servers (and terminate stdio subprocesses). Call on teardown.
     func disconnectMCP() async {
         await mcpManager.disconnectAll()
@@ -161,8 +175,10 @@ final class ChatViewModel {
                     .codeExecution()
                 ]
             )
+        // Preserve the existing conversation when swapping the model's tool set.
+        let history = chat.history
         model = m
-        chat = m.startChat()
+        chat = m.startChat(history: history)
     }
 
     func clearChat() {
