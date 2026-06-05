@@ -41,10 +41,13 @@ final class MCPManager {
 
     // MARK: - Connection lifecycle
 
-    /// Connect all enabled servers in `configs`, replacing any existing connections.
+    /// Connect *every* server in `configs` (regardless of `enabled`), replacing any
+    /// existing connections. The `enabled` flag no longer gates connection — it only
+    /// controls whether a connected server's tools are advertised to the model
+    /// (see `aggregatedFunctionDeclarations()`).
     func connectAll(_ configs: [MCPServerConfig]) async {
         await disconnectAll()
-        for config in configs where config.enabled {
+        for config in configs {
             await connect(config)
         }
     }
@@ -209,8 +212,18 @@ final class MCPManager {
         return names
     }
 
+    /// Declarations for *enabled* servers only. A connected-but-disabled server keeps
+    /// its connection (and tool discovery), but its tools are withheld from the model.
     func aggregatedFunctionDeclarations() -> [FunctionDeclaration] {
-        serverTools.values.flatMap { $0.map(\.declaration) }
+        serverTools.flatMap { id, entries in
+            (configsByID[id]?.enabled ?? true) ? entries.map(\.declaration) : []
+        }
+    }
+
+    /// Flip a server's enabled flag in-memory. Callers should rebuild the model
+    /// afterwards so the tool set reflects the change. Does not connect or disconnect.
+    func setEnabled(_ id: UUID, _ enabled: Bool) {
+        configsByID[id]?.enabled = enabled
     }
 
     /// Returns the (serverID, original tool name) that owns an exposed tool name.

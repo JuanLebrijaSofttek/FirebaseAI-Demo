@@ -151,6 +151,14 @@ final class ChatViewModel {
         rebuildModel()
     }
 
+    /// Toggle whether a connected server's tools are advertised to the model, without
+    /// connecting or disconnecting it (its subprocess/connection stays alive).
+    func setServerEnabled(_ id: UUID, _ enabled: Bool) {
+        mcpManager.setEnabled(id, enabled)
+        mcpStatuses = Array(mcpManager.statuses.values)
+        rebuildModel()
+    }
+
     /// Disconnect a single server (removing its tools from the model).
     func disconnectServer(_ id: UUID) async {
         await mcpManager.disconnect(id)

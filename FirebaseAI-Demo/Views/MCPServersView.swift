@@ -63,7 +63,8 @@ struct MCPServersView: View {
         let status = viewModel.mcpStatuses.first { $0.id == server.id }
         HStack(spacing: 10) {
             Circle()
-                .fill(server.enabled ? color(for: status?.state) : .gray)
+                .fill(color(for: status?.state))
+                .opacity(server.enabled ? 1 : 0.4)
                 .frame(width: 9, height: 9)
             VStack(alignment: .leading, spacing: 2) {
                 Text(server.name).font(.body)
@@ -80,63 +81,58 @@ struct MCPServersView: View {
         .padding(.vertical, 2)
     }
 
+    /// Reflects the *connection* state (independent of enabled), with a muted "· off"
+    /// suffix on the tool count when the server is disabled.
     @ViewBuilder
     private func statusDetail(for server: MCPServerConfig, status: MCPServerStatus?) -> some View {
-        if !server.enabled {
-            Text("Disabled").font(.caption2).foregroundStyle(.secondary)
-        } else {
-            switch status?.state ?? .disconnected {
-            case .connected:
-                Text("\(status?.toolCount ?? 0) tools").font(.caption).foregroundStyle(.secondary)
-            case .failed(let msg):
-                Text(msg).font(.caption2).foregroundStyle(.red).lineLimit(1)
-            case .needsAuth:
-                Text("Needs sign-in").font(.caption2).foregroundStyle(.orange)
-            default:
-                EmptyView()
-            }
+        switch status?.state ?? .disconnected {
+        case .connected:
+            Text("\(status?.toolCount ?? 0) tools" + (server.enabled ? "" : " · off"))
+                .font(.caption).foregroundStyle(.secondary)
+        case .failed(let msg):
+            Text(msg).font(.caption2).foregroundStyle(.red).lineLimit(1)
+        case .needsAuth:
+            Text("Needs sign-in").font(.caption2).foregroundStyle(.orange)
+        default:
+            EmptyView()
         }
     }
 
+    /// The Enable/Disable toggle is always available; a Connect/Sign-in button appears
+    /// only when the connection itself needs attention.
     @ViewBuilder
     private func actionButton(for server: MCPServerConfig, status: MCPServerStatus?) -> some View {
-        if inProgress.contains(server.id) {
-            ProgressView().controlSize(.small)
-        } else if !server.enabled {
-            // Disabled → allow re-enabling (its tools rejoin the model).
-            Button("Enable") { setEnabled(server, true) }
-                .font(.caption).buttonStyle(.bordered)
-        } else {
-            switch status?.state ?? .disconnected {
-            case .connecting:
+        HStack(spacing: 8) {
+            if inProgress.contains(server.id) {
                 ProgressView().controlSize(.small)
-            case .connected:
-                // Connected → allow disabling so the model ignores its tools.
-                Button("Disable") { setEnabled(server, false) }
-                    .font(.caption).buttonStyle(.bordered)
-            case .needsAuth:
-                Button("Sign in") { connectAction(server) }
-                    .font(.caption).buttonStyle(.borderedProminent)
-            default:
-                // Enabled but not connected (failed / disconnected) → retry.
-                Button("Connect") { connectAction(server) }
-                    .font(.caption).buttonStyle(.borderedProminent)
+            } else {
+                switch status?.state ?? .disconnected {
+                case .connecting:
+                    ProgressView().controlSize(.small)
+                case .connected:
+                    EmptyView()
+                case .needsAuth:
+                    Button("Sign in") { connectAction(server) }
+                        .font(.caption).buttonStyle(.borderedProminent)
+                default:
+                    // Not connected (failed / disconnected) → retry.
+                    Button("Connect") { connectAction(server) }
+                        .font(.caption).buttonStyle(.borderedProminent)
+                }
             }
+
+            Button(server.enabled ? "Disable" : "Enable") { setEnabled(server, !server.enabled) }
+                .font(.caption).buttonStyle(.bordered)
         }
     }
 
+    /// Flip the enabled flag: persist it and rebuild the model's tool set. The server's
+    /// connection (and subprocess) is left untouched.
     private func setEnabled(_ server: MCPServerConfig, _ enabled: Bool) {
         guard let idx = servers.firstIndex(where: { $0.id == server.id }) else { return }
         servers[idx].enabled = enabled
         MCPServerStore.save(servers)
-        let config = servers[idx]
-        runAction(server.id) {
-            if enabled {
-                await viewModel.connectServer(config)
-            } else {
-                await viewModel.disconnectServer(server.id)
-            }
-        }
+        viewModel.setServerEnabled(server.id, enabled)
     }
 
     private func connectAction(_ server: MCPServerConfig) {
